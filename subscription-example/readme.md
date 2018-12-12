@@ -126,3 +126,7 @@ The selection set in this example application is selected as follows:
 
 The underling stock update object is mapped to this selection of fields, just like any normal graphql query.  The format
 of the results on the browser is JSON, again like any other normal graphql query.
+
+//Bandham recommended for Observables
+http://www.vogella.com/tutorials/RxJava/article.html
+https://medium.com/@mohitsharma_16765/rxsubjects-cold-and-hot-observables-connectableobservable-6ab0f3020876

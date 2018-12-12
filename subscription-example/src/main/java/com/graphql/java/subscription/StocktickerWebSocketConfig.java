@@ -10,15 +10,10 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 @EnableWebSocket
 public class StocktickerWebSocketConfig implements WebSocketConfigurer {
 
-    private final StockTickerGraphqlPublisher stockTickerGraphqlPublisher;
+	@Autowired
+	private StockTickerWebSocketHandler stockTickerWebSocketHandler;
 
-    @Autowired
-    public StocktickerWebSocketConfig(StockTickerGraphqlPublisher stockTickerGraphqlPublisher) {
-        this.stockTickerGraphqlPublisher = stockTickerGraphqlPublisher;
-    }
-
-    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(new StockTickerWebSocketHandler(stockTickerGraphqlPublisher), "/stockticker").setAllowedOrigins("*");
-    }
+	public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+		registry.addHandler(stockTickerWebSocketHandler, "/stockticker").setAllowedOrigins("*");
+	}
 }
-

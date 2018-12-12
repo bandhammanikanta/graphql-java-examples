@@ -1,132 +1,127 @@
 package com.graphql.java.subscription;
 
+import static java.util.Collections.singletonList;
+
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
+
+import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.TextWebSocketHandler;
+
 import com.graphql.java.subscription.utill.JsonKit;
 import com.graphql.java.subscription.utill.QueryParameters;
+
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
 import graphql.execution.instrumentation.ChainedInstrumentation;
 import graphql.execution.instrumentation.Instrumentation;
 import graphql.execution.instrumentation.tracing.TracingInstrumentation;
-import org.reactivestreams.Publisher;
-import org.reactivestreams.Subscriber;
-import org.reactivestreams.Subscription;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.web.socket.CloseStatus;
-import org.springframework.web.socket.TextMessage;
-import org.springframework.web.socket.WebSocketSession;
-import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static java.util.Collections.singletonList;
-
+@Component
 public class StockTickerWebSocketHandler extends TextWebSocketHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(StockTickerWebSocketHandler.class);
+	private static final Logger log = LoggerFactory.getLogger(StockTickerWebSocketHandler.class);
 
-    private final StockTickerGraphqlPublisher graphqlPublisher;
-    private final AtomicReference<Subscription> subscriptionRef;
+	@Autowired
+	private StockTickerGraphqlPublisher graphqlPublisher;
 
-    public StockTickerWebSocketHandler(StockTickerGraphqlPublisher graphqlPublisher) {
-        this.graphqlPublisher = graphqlPublisher;
-        subscriptionRef = new AtomicReference<>();
-    }
+	private final AtomicReference<Subscription> subscriptionRef;
 
-    @Override
-    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        log.info("Websocket connection established");
-    }
+	public StockTickerWebSocketHandler() {
+		subscriptionRef = new AtomicReference<>();
+	}
 
-    @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        log.info("Closing subscription ");
-        Subscription subscription = subscriptionRef.get();
-        if (subscription != null) {
-            subscription.cancel();
-        }
-    }
+	@Override
+	public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+		log.info("Websocket connection established");
+	}
 
-    @Override
-    protected void handleTextMessage(WebSocketSession webSocketSession, TextMessage message) throws Exception {
-        String graphqlQuery = message.getPayload();
-        log.info("Websocket said {}", graphqlQuery);
+	@Override
+	public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+		log.info("Closing subscription ");
+	}
 
-        QueryParameters parameters = QueryParameters.from(graphqlQuery);
+	@Override
+	protected void handleTextMessage(WebSocketSession webSocketSession, TextMessage message) throws Exception {
+		String graphqlQuery = message.getPayload();
+		log.info("Websocket said {}", graphqlQuery);
 
-        ExecutionInput executionInput = ExecutionInput.newExecutionInput()
-                .query(parameters.getQuery())
-                .variables(parameters.getVariables())
-                .operationName(parameters.getOperationName())
-                .build();
+		QueryParameters parameters = QueryParameters.from(graphqlQuery);
 
-        Instrumentation instrumentation = new ChainedInstrumentation(
-                singletonList(new TracingInstrumentation())
-        );
+		ExecutionInput executionInput = ExecutionInput.newExecutionInput().query(parameters.getQuery())
+				.variables(parameters.getVariables()).operationName(parameters.getOperationName()).build();
 
-        //
-        // In order to have subscriptions in graphql-java you MUST use the
-        // SubscriptionExecutionStrategy strategy.
-        //
-        GraphQL graphQL = GraphQL
-                .newGraphQL(graphqlPublisher.getGraphQLSchema())
-                .instrumentation(instrumentation)
-                .build();
+		Instrumentation instrumentation = new ChainedInstrumentation(singletonList(new TracingInstrumentation()));
 
-        ExecutionResult executionResult = graphQL.execute(executionInput);
+		//
+		// In order to have subscriptions in graphql-java you MUST use the
+		// SubscriptionExecutionStrategy strategy.
+		//
+		GraphQL graphQL = GraphQL.newGraphQL(graphqlPublisher.getGraphQLSchema()).instrumentation(instrumentation)
+				.build();
 
-        Publisher<ExecutionResult> stockPriceStream = executionResult.getData();
+		ExecutionResult executionResult = graphQL.execute(executionInput);
 
-        stockPriceStream.subscribe(new Subscriber<ExecutionResult>() {
+		Publisher<ExecutionResult> stockPriceStream = executionResult.getData();
 
-            @Override
-            public void onSubscribe(Subscription s) {
-                subscriptionRef.set(s);
-                request(1);
-            }
+		stockPriceStream.subscribe(new Subscriber<ExecutionResult>() {
 
-            @Override
-            public void onNext(ExecutionResult er) {
-                log.debug("Sending stick price update");
-                try {
-                    Object stockPriceUpdate = er.getData();
-                    String json = JsonKit.toJsonString(stockPriceUpdate);
-                    webSocketSession.sendMessage(new TextMessage(json));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                request(1);
-            }
+			@Override
+			public void onSubscribe(Subscription s) {
+				subscriptionRef.set(s);
+				request(1);
+			}
 
-            @Override
-            public void onError(Throwable t) {
-                log.error("Subscription threw an exception", t);
-                try {
-                    webSocketSession.close();
-                } catch (IOException e) {
-                    log.error("Unable to close websocket session", e);
-                }
-            }
+			@Override
+			public void onNext(ExecutionResult er) {
+				log.debug("Sending stick price update");
+				try {
+					Object stockPriceUpdate = er.getData();
+					String json = JsonKit.toJsonString(stockPriceUpdate);
+					webSocketSession.sendMessage(new TextMessage(json));
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				request(1);
+			}
 
-            @Override
-            public void onComplete() {
-                log.info("Subscription complete");
-                try {
-                    webSocketSession.close();
-                } catch (IOException e) {
-                    log.error("Unable to close websocket session", e);
-                }
-            }
-        });
-    }
+			@Override
+			public void onError(Throwable t) {
+				log.error("Subscription threw an exception", t);
+				try {
+					webSocketSession.close();
+				} catch (IOException e) {
+					log.error("Unable to close websocket session", e);
+				}
+			}
 
-    private void request(int n) {
-        Subscription subscription = subscriptionRef.get();
-        if (subscription != null) {
-            subscription.request(n);
-        }
-    }
+			@Override
+			public void onComplete() {
+				log.info("Subscription complete");
+				try {
+					webSocketSession.close();
+				} catch (IOException e) {
+					log.error("Unable to close websocket session", e);
+				}
+			}
+		});
+	}
+
+	private void request(int n) {
+		Subscription subscription = subscriptionRef.get();
+		if (subscription != null) {
+			subscription.request(n);
+		}
+	}
 
 }
