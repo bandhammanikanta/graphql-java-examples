@@ -39,14 +39,11 @@ public class StockTickerGraphqlPublisher {
 	}
 
 	public GraphQLSchema getGraphQLSchema() {
-		//
-		// reads a file that provides the schema types
-		//
 		Reader streamReader = loadSchemaFile("stocks.graphqls");
 		TypeDefinitionRegistry typeRegistry = new SchemaParser().parse(streamReader);
 
 		RuntimeWiring wiring = RuntimeWiring.newRuntimeWiring()
-				.type(newTypeWiring("Subscription").dataFetcher("stockQuotes", stockQuotesSubscriptionFetcher()))
+				.type(newTypeWiring("Subscription").dataFetcher("StockQuotes", stockQuotesSubscriptionFetcher()))
 				.build();
 
 		return new SchemaGenerator().makeExecutableSchema(typeRegistry, wiring);

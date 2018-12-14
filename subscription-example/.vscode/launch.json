@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "CodeLens (Launch) - SubscriptionExampleApplication",
+            "request": "launch",
+            "mainClass": "com.graphql.java.subscription.SubscriptionExampleApplication",
+            "projectName": "subscription-example"
+        }
+    ]
+}

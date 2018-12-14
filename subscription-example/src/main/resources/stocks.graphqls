@@ -11,7 +11,7 @@ type Query {
 }
 
 type Subscription {
-    stockQuotes(stockCodes:[String]) : StockPriceUpdate!
+    StockQuotes(stockCodes:[String]) : StockPriceUpdate!
 }
 
 type StockPriceUpdate {

@@ -1,9 +1,10 @@
 package com.graphql.java.subscription;
 
-import static java.util.Collections.singletonList;
-
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
+
+import com.graphql.java.subscription.utill.JsonKit;
+import com.graphql.java.subscription.utill.QueryParameters;
 
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -17,15 +18,10 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import com.graphql.java.subscription.utill.JsonKit;
-import com.graphql.java.subscription.utill.QueryParameters;
-
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
-import graphql.execution.instrumentation.ChainedInstrumentation;
-import graphql.execution.instrumentation.Instrumentation;
-import graphql.execution.instrumentation.tracing.TracingInstrumentation;
+import graphql.execution.SubscriptionExecutionStrategy;
 
 @Component
 public class StockTickerWebSocketHandler extends TextWebSocketHandler {
@@ -61,14 +57,12 @@ public class StockTickerWebSocketHandler extends TextWebSocketHandler {
 		ExecutionInput executionInput = ExecutionInput.newExecutionInput().query(parameters.getQuery())
 				.variables(parameters.getVariables()).operationName(parameters.getOperationName()).build();
 
-		Instrumentation instrumentation = new ChainedInstrumentation(singletonList(new TracingInstrumentation()));
-
 		//
 		// In order to have subscriptions in graphql-java you MUST use the
 		// SubscriptionExecutionStrategy strategy.
 		//
-		GraphQL graphQL = GraphQL.newGraphQL(graphqlPublisher.getGraphQLSchema()).instrumentation(instrumentation)
-				.build();
+		GraphQL graphQL = GraphQL.newGraphQL(graphqlPublisher.getGraphQLSchema())
+				.subscriptionExecutionStrategy(new SubscriptionExecutionStrategy()).build();
 
 		ExecutionResult executionResult = graphQL.execute(executionInput);
 

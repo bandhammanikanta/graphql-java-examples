@@ -71,7 +71,7 @@
                 console.log("web socket opened");
 
                 var query = 'subscription StockCodeSubscription { \n' +
-                    '    stockQuotes {' +
+                    '    StockQuotes {' +
                     '       dateTime\n' +
                     '       stockCode\n' +
                     '       stockPrice\n' +
@@ -93,16 +93,16 @@
                 var data = event.data;
                 var msg = JSON.parse(data);
                 console.log(data);
-                var stockQuotes = msg.stockQuotes;
-                var stockCode = stockQuotes.stockCode;
+                var StockQuotes = msg.StockQuotes;
+                var stockCode = StockQuotes.stockCode;
                 var stockList = STOCK_CODES_UPDATES[stockCode];
                 if (stockList) {
                     if (stockList.length > 7) {
                         stockList.shift()
                     }
-                    stockList.push(stockQuotes)
+                    stockList.push(StockQuotes)
                 } else {
-                    STOCK_CODES_UPDATES[stockCode] = [stockQuotes];
+                    STOCK_CODES_UPDATES[stockCode] = [StockQuotes];
                 }
 
                 var htmlStr = '';
@@ -153,7 +153,7 @@
             <p>The graphql query used in this example is :</p>
             <pre>
 subscription StockCodeSubscription {
-    stockQuotes {
+    StockQuotes {
         dateTime
         stockCode
         stockPrice
